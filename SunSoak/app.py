@@ -28,7 +28,14 @@ Station = Base.classes.station
 session = Session(engine)
 maxD = session.query(func.max(Measurement.date)).first()
 query_date = (str(dt.datetime.strptime(maxD[0], '%Y-%m-%d') - dt.timedelta(days=365)))[:10]
-session.commit()
+session.close()
+
+
+LHA = [Measurement.date, 
+            func.min(Measurement.tobs),
+            func.max(Measurement.tobs),
+            func.avg(Measurement.tobs),]
+# Date_list = session.query(Measurement.date).order_by(Measurement.date).all()
 ################################################
 # Flask Setup
 #################################################
@@ -46,8 +53,8 @@ def welcome():
         f"<a href='/api/v1.0/percitpitation'>/api/v1.0/percitpitation</a></br>"
         f"/api/v1.0/stations<br/>"
         f"<a href='/api/v1.0/tobs'>/api/v1.0/tobs</a></br>"
-        f"/api/v1.0/<start> and<br/>"
-        f"/api/v1.0/<end><br/>"
+        f"/api/v1.0/2017-08-17 and<br/>"
+        f"/api/v1.0/2017-07-17/2017-08-17"
     )
 
 
@@ -70,7 +77,7 @@ def names():
 
 @app.route("/api/v1.0/percitpitation")
 def percitpitation():
-    # Create our session (link) from Python to the DB
+    
     session = Session(engine)
     # Perform a query to retrieve the data and precipitation scores
     DPscores = session.query(Measurement.date, Measurement.prcp).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).order_by(Measurement.date).all()
@@ -79,19 +86,59 @@ def percitpitation():
 
 @app.route("/api/v1.0/tobs")
 def tobs():
-    # Create our session (link) from Python to the DB
+    
     session = Session(engine)
-    # maxD = session.query(func.max(Measurement.date)).first()
-    # query_date = (str(dt.datetime.strptime(maxD[0], '%Y-%m-%d') - dt.timedelta(days=365)))[:10]
-    # Perform a query to retrieve the data and precipitation scores
     DPtobs = session.query(Measurement.date, Measurement.tobs).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).filter(Measurement.station == 'USC00519281').all()
     session.close()
     Ltobs = []
-    for prcp in DPtobs:
-        Ltobs_dict={}
-        Ltobs_dict['tobs'] = tobs
-        Ltobs.append(Ltobs_dict)
-    return jsonify(dict(DPtobs))
+    for date, tobs in DPtobs:
+        Measurement_dict = {}
+        Measurement_dict["Temperature"] = tobs
+        Ltobs.append(Measurement_dict)
+    return jsonify(Ltobs)
+
+@app.route("/api/v1.0/<start>")
+def start_date(start):
+    """Fetch the date which matches
+       the path variable supplied by the user, or a 404 if not."""
+    try:
+
+        session = Session(engine)
+        search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= f'{start}').group_by(Measurement.date).all()
+        session.close()
+        LHAsearch = []
+        for date, min, max, avg in search_return:
+            Measurement_dict = {}
+            Measurement_dict["date"] = date
+            Measurement_dict["min"] = min
+            Measurement_dict["max"] = max
+            Measurement_dict["avg"] = avg
+            LHAsearch.append(Measurement_dict)
+        return jsonify((LHAsearch))
+    except Exception as e:
+        return jsonify({"error": f"Date '{start}' not found."}), 404
+
+@app.route("/api/v1.0/<start>/<end>")
+def startend_date(start, end):
+    """Fetch the date which matches
+       the path variable supplied by the user, or a 404 if not."""
+    try:
+
+        session = Session(engine)
+        search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= f'{start}',(func.strftime('%Y-%m-%d', Measurement.date)  <= f'{end}')).group_by(Measurement.date).all()
+        session.close()
+        LHAsearch = []
+        for date, min, max, avg in search_return:
+            Measurement_dict = {}
+            Measurement_dict["date"] = date
+            Measurement_dict["min"] = min
+            Measurement_dict["max"] = max
+            Measurement_dict["avg"] = avg
+            LHAsearch.append(Measurement_dict)
+        return jsonify((LHAsearch))
+    except Exception as e:
+        return jsonify({"error": f"Date range {start} - {end} not found."}), 404
+
 
 @app.route("/api/v1.0/Measurements")
 def Measurements():
@@ -109,12 +156,11 @@ def Measurements():
     for date, prcp, tobs in results:
         Measurement_dict = {}
         Measurement_dict["date"] = date
-        Measurement_dict["prcp"] = prcp
-        Measurement_dict["tobs"] = tobs
+        # Measurement_dict["prcp"] = prcp
+        # Measurement_dict["tobs"] = tobs
         all_Measurements.append(Measurement_dict)
 
     return jsonify(all_Measurements)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
