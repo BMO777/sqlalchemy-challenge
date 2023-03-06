@@ -30,12 +30,12 @@ maxD = session.query(func.max(Measurement.date)).first()
 query_date = (str(dt.datetime.strptime(maxD[0], '%Y-%m-%d') - dt.timedelta(days=365)))[:10]
 session.close()
 
-
+#lowest highest average temps calculation variable
 LHA = [Measurement.date, 
             func.min(Measurement.tobs),
             func.max(Measurement.tobs),
             func.avg(Measurement.tobs),]
-# Date_list = session.query(Measurement.date).order_by(Measurement.date).all()
+
 ################################################
 # Flask Setup
 #################################################
@@ -47,11 +47,12 @@ app = Flask(__name__)
 #################################################
 @app.route("/")
 def welcome():
-    """List all available api routes to find a place to soak in the sun."""
+    """List all available api routes"""
     return (
+        f" Welsome, hope this api helps you find a place to soak in the sun.<br/>"
         f"Available Routes:<br/>"
-        f"<a href='/api/v1.0/percitpitation'>/api/v1.0/percitpitation</a></br>"
-        f"/api/v1.0/stations<br/>"
+        f"<a href='/api/v1.0/precipitation'>/api/v1.0/precipitation</a></br>"
+        f"<a href= '/api/v1.0/stations'>/api/v1.0/stations</a></br>"
         f"<a href='/api/v1.0/tobs'>/api/v1.0/tobs</a></br>"
         f"/api/v1.0/2017-08-17 and<br/>"
         f"/api/v1.0/2017-07-17/2017-08-17"
@@ -59,28 +60,37 @@ def welcome():
 
 
 @app.route("/api/v1.0/stations")
-def names():
+def stations():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
-    """Return a list of all Station names"""
+    """Return a list of all Station columns"""
     # Query all Stations
-    results = session.query(Station.name).all()
+    results = session.query(Station.id, Station.station, Station.name, Station.latitude, Station.longitude, Station.elevation).all()
 
     session.close()
-
+    Slist = []
+    for id, sta, name, lat, lng, ele in results:
+        Station_dict = {}
+        Station_dict["id"] = id
+        Station_dict["station"] = sta
+        Station_dict["name"] = name
+        Station_dict["latitude"] = lat
+        Station_dict["longitude"] = lng
+        Station_dict["elevation"] = ele
+        Slist.append(Station_dict)
     # Convert list of tuples into normal list
-    all_names = list(np.ravel(results))
+    # stations = list(np.ravel(results))
 
-    return jsonify(all_names)
+    return jsonify(Slist)
 
 
-@app.route("/api/v1.0/percitpitation")
+@app.route("/api/v1.0/precipitation")
 def percitpitation():
     
     session = Session(engine)
     # Perform a query to retrieve the data and precipitation scores
-    DPscores = session.query(Measurement.date, Measurement.prcp).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).order_by(Measurement.date).all()
+    DPscores = session.query(Measurement.date, Measurement.prcp).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).all()
     session.close()
     return jsonify(dict(DPscores))
 
@@ -88,7 +98,8 @@ def percitpitation():
 def tobs():
     
     session = Session(engine)
-    DPtobs = session.query(Measurement.date, Measurement.tobs).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).filter(Measurement.station == 'USC00519281').all()
+    DPtobs = session.query(Measurement.date, Measurement.tobs).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).\
+        filter(Measurement.station == 'USC00519281').all()
     session.close()
     Ltobs = []
     for date, tobs in DPtobs:
@@ -125,7 +136,8 @@ def startend_date(start, end):
     try:
 
         session = Session(engine)
-        search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= f'{start}',(func.strftime('%Y-%m-%d', Measurement.date)  <= f'{end}')).group_by(Measurement.date).all()
+        search_return = session.query(*LHA).\
+            filter(func.strftime('%Y-%m-%d', Measurement.date) >= f'{start}',(func.strftime('%Y-%m-%d', Measurement.date)  <= f'{end}')).all()
         session.close()
         LHAsearch = []
         for date, min, max, avg in search_return:
@@ -138,29 +150,6 @@ def startend_date(start, end):
         return jsonify((LHAsearch))
     except Exception as e:
         return jsonify({"error": f"Date range {start} - {end} not found."}), 404
-
-
-@app.route("/api/v1.0/Measurements")
-def Measurements():
-    # Create our session (link) from Python to the DB
-    session = Session(engine)
-
-    """Return a list of Measurement data including the date, prcp, and tobs of each Measurement"""
-    # Query all Measurements
-    results = session.query(Measurement.date, Measurement.prcp, Measurement.tobs).all()
-
-    session.close()
-
-    # Create a dictionary from the row data and append to a list of all_Measurements
-    all_Measurements = []
-    for date, prcp, tobs in results:
-        Measurement_dict = {}
-        Measurement_dict["date"] = date
-        # Measurement_dict["prcp"] = prcp
-        # Measurement_dict["tobs"] = tobs
-        all_Measurements.append(Measurement_dict)
-
-    return jsonify(all_Measurements)
 
 if __name__ == '__main__':
     app.run(debug=True)
