@@ -55,8 +55,8 @@ def welcome():
         f"<a href= '/api/v1.0/stations'>/api/v1.0/stations</a></br>"
         f"<a href='/api/v1.0/tobs'>/api/v1.0/tobs</a></br>"
         f"Enter dates into the search query between 2010-1-1 and 2017-8-23. For ex:<br/>"
-        f"/api/v1.0/2017-08-17 and<br/>"
-        f"/api/v1.0/2017-07-17/2017-08-17"
+        f"<a href='/api/v1.0/2017-08-17'>/api/v1.0/2017-08-17, for dates greater than or equal to 8-17-2017</a></br>"
+        f"<a href='/api/v1.0/2017-07-17/2017-08-17'>/api/v1.0/2017-07-17/2017-08-17, for dates between 2017-07-17 and 2017-8-17</a></br>"
     )
 
 
@@ -121,7 +121,7 @@ def start_date(start):
 
     session = Session(engine)
               
-    search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= (start)).group_by(Measurement.date).all()
+    search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= start).group_by(Measurement.date).all()
     session.close()
     LHAsearch = []
     for date, min, max, avg in search_return:
@@ -131,8 +131,8 @@ def start_date(start):
         Measurement_dict["max"] = max
         Measurement_dict["avg"] = avg
         LHAsearch.append(Measurement_dict)
-    if LHAsearch != None:
-            return jsonify(LHAsearch)
+    if len(LHAsearch)>0 :
+        return jsonify(LHAsearch)
     return jsonify({"error": f"Date '{start}' not found."}), 404
 
 @app.route("/api/v1.0/<start>/<end>")
@@ -153,7 +153,7 @@ def startend_date(start, end):
         Measurement_dict["max"] = max
         Measurement_dict["avg"] = avg
         LHAsearch.append(Measurement_dict)
-    if LHAsearch != None:
+    if len(LHAsearch)>0:
         return jsonify((LHAsearch))
     return jsonify({"error": f"Date range {start} - {end} not found."}), 404
 
