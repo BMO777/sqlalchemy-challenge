@@ -139,8 +139,14 @@ def start_date(start):
 def startend_date(start, end):
     """Fetch the date range which matches
        the path variable supplied by the user, or a 404 if not."""
-    session = Session(engine)
-                    
+    try:
+        start = dt.datetime.strptime(start, '%Y-%m-%d').strftime("%Y-%m-%d")
+    except Exception as e:
+        start = dt.datetime.strptime(start, '%m-%d-%Y').strftime("%Y-%m-%d")
+    try:
+        end = dt.datetime.strptime(end, '%Y-%m-%d').strftime("%Y-%m-%d")
+    except Exception as e:
+        end = dt.datetime.strptime(end, '%m-%d-%Y').strftime("%Y-%m-%d")            
     search_return = session.query(*LHA).\
         filter(func.strftime('%Y-%m-%d', Measurement.date) >= start,(func.strftime('%Y-%m-%d', Measurement.date)  <= end)).\
             group_by(Measurement.date).all()
@@ -153,9 +159,9 @@ def startend_date(start, end):
         Measurement_dict["max"] = max
         Measurement_dict["avg"] = avg
         LHAsearch.append(Measurement_dict)
-    if len(LHAsearch)>0:
+    if start >= '2010-01-01' and end <= '2017-08-23': 
         return jsonify((LHAsearch))
-    return jsonify({"error": f"Date range {start} - {end} not found."}), 404
+    return jsonify({"error": f"Date range between {start} - {end} not found. Displaying latest and/or earliest date available"},(LHAsearch)), 404
 
 if __name__ == '__main__':
     app.config['JSON_SORT_KEYS'] = False
