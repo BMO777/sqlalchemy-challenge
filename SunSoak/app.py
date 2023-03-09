@@ -80,9 +80,7 @@ def stations():
         Station_dict["longitude"] = lng
         Station_dict["elevation"] = ele
         Slist.append(Station_dict)
-    # Convert list of tuples into normal list
-    # stations = list(np.ravel(results))
-
+    
     return jsonify(Slist)
 
 
@@ -93,7 +91,11 @@ def percitpitation():
     # Perform a query to retrieve the data and precipitation scores
     DPscores = session.query(Measurement.date, Measurement.prcp).filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).all()
     session.close()
+
     return jsonify(dict(DPscores))
+    # # Convert list of tuples into normal list
+    # return jsonify(list(np.ravel(DPscores)))
+    
 
 @app.route("/api/v1.0/tobs")
 def tobs():
@@ -113,55 +115,63 @@ def tobs():
 def start_date(start):
     """Fetch the date which matches
        the path variable supplied by the user, or a 404 if not."""
-    #Change date if not in acceptable format
     try:
-        start = dt.datetime.strptime(start, '%Y-%m-%d').strftime("%Y-%m-%d")
-    except Exception as e:
-        start = dt.datetime.strptime(start, '%m-%d-%Y').strftime("%Y-%m-%d")
+        #Change date if not in acceptable format
+        
+        if len(start.split("-")[0]) != 4:
+            start = dt.datetime.strptime(start, '%m-%d-%Y').strftime("%Y-%m-%d")
 
-    session = Session(engine)
-              
-    search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= start).group_by(Measurement.date).all()
-    session.close()
-    LHAsearch = []
-    for date, min, max, avg in search_return:
-        Measurement_dict = {}
-        Measurement_dict["date"] = date
-        Measurement_dict["min"] = min
-        Measurement_dict["max"] = max
-        Measurement_dict["avg"] = avg
-        LHAsearch.append(Measurement_dict)
-    if len(LHAsearch)>0 :
-        return jsonify(LHAsearch)
-    return jsonify({"error": f"Date '{start}' not found."}), 404
+        session = Session(engine)
+                
+        search_return = session.query(*LHA).filter(func.strftime('%Y-%m-%d', Measurement.date) >= start).group_by(Measurement.date).all()
+        session.close()
+        LHAsearch = []
+        for date, min, max, avg in search_return:
+            Measurement_dict = {}
+            Measurement_dict["date"] = date
+            Measurement_dict["min"] = min
+            Measurement_dict["max"] = max
+            Measurement_dict["avg"] = avg
+            LHAsearch.append(Measurement_dict)
+        if start >= '2010-01-01' and start <= '2017-08-23': 
+            if len(LHAsearch)>0:
+                return jsonify((LHAsearch))
+        elif len(LHAsearch)>0:                                 
+            return jsonify({"error": f"Date '{start}' not found. Displaying earliest and latest date available:"},(LHAsearch)), 404
+        return jsonify({"error": f"Date '{start}' not found."}), 404
+    except Exception as e:
+        return jsonify({"error": f"{start} not a date with acceptable year month and day format nor acceptable path end"}), 404 
 
 @app.route("/api/v1.0/<start>/<end>")
 def startend_date(start, end):
     """Fetch the date range which matches
        the path variable supplied by the user, or a 404 if not."""
     try:
-        start = dt.datetime.strptime(start, '%Y-%m-%d').strftime("%Y-%m-%d")
+        if len(start.split("-")[0]) != 4:
+            start = dt.datetime.strptime(start, '%m-%d-%Y').strftime("%Y-%m-%d")
+            end = dt.datetime.strptime(end, '%m-%d-%Y').strftime("%Y-%m-%d")            
+        search_return = session.query(*LHA).\
+            filter(func.strftime('%Y-%m-%d', Measurement.date) >= start,(func.strftime('%Y-%m-%d', Measurement.date)  <= end)).\
+                group_by(Measurement.date).all()
+        session.close()
+        LHAsearch = []
+        for date, min, max, avg in search_return:
+            Measurement_dict = {}
+            Measurement_dict["date"] = date
+            Measurement_dict["min"] = min
+            Measurement_dict["max"] = max
+            Measurement_dict["avg"] = avg
+            LHAsearch.append(Measurement_dict)
+        
+        if start >= '2010-01-01' and end <= '2017-08-23': 
+            if len(LHAsearch)>0:
+                return jsonify((LHAsearch))
+        elif len(LHAsearch)>0:                                 
+            return jsonify({"error": f"Date range between {start} - {end} out of bounds. Displaying earliest and/or latest date available:"},(LHAsearch)), 404
+        return jsonify({"error": f"Date range between {start} - {end} out of bounds"}), 404
     except Exception as e:
-        start = dt.datetime.strptime(start, '%m-%d-%Y').strftime("%Y-%m-%d")
-    try:
-        end = dt.datetime.strptime(end, '%Y-%m-%d').strftime("%Y-%m-%d")
-    except Exception as e:
-        end = dt.datetime.strptime(end, '%m-%d-%Y').strftime("%Y-%m-%d")            
-    search_return = session.query(*LHA).\
-        filter(func.strftime('%Y-%m-%d', Measurement.date) >= start,(func.strftime('%Y-%m-%d', Measurement.date)  <= end)).\
-            group_by(Measurement.date).all()
-    session.close()
-    LHAsearch = []
-    for date, min, max, avg in search_return:
-        Measurement_dict = {}
-        Measurement_dict["date"] = date
-        Measurement_dict["min"] = min
-        Measurement_dict["max"] = max
-        Measurement_dict["avg"] = avg
-        LHAsearch.append(Measurement_dict)
-    if start >= '2010-01-01' and end <= '2017-08-23': 
-        return jsonify((LHAsearch))
-    return jsonify({"error": f"Date range between {start} - {end} not found. Displaying latest and/or earliest date available"},(LHAsearch)), 404
+        return jsonify({"error": f"{start} and/or {end} not a date with acceptable year month and day format nor acceptable path end"}), 404 
+    
 
 if __name__ == '__main__':
     app.config['JSON_SORT_KEYS'] = False
