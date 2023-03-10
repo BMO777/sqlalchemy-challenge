@@ -1,6 +1,6 @@
 # sqlalchemy-challenge
 
-In the SunSoak folder will be found a jupyter notebook file named climate and a python file containing code to run a flask app named app.py. 
+In the SunSoak folder will be found a jupyter notebook file named climate and a python file containing code to run a flask app within app.py. 
 
 Also there will be a resource folder with hawaii.sqlite database file from which data will be extracted from for use in designing queries, outputting graphs, and creating a flask app to reference the data within the sqlite database. 
 
