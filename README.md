@@ -10,3 +10,5 @@ The app.py file contains code for a flask app that queries stations, temperature
 
 To run:
 Requires python3 with the librarires: flask, sqlalchemy and pandas. Applications recommended: Jupyter notebook for the notebook and Visual Studio Code for the python app file.
+
+clone the repo. run app.py, then follow the link to the localhost server, click the links or enter example date at end of url in appropriate spot to search for dates
